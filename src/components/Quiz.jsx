@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { quizzes } from '../data/quizzes';
-import { FaCheckCircle, FaTimesCircle } from 'react-icons/fa';
+import { FaCheckCircle, FaTimesCircle, FaClock } from 'react-icons/fa';
 
-// Función para barajar un array de forma aleatoria (Fisher-Yates shuffle)
 const shuffleArray = (array) => {
   const newArray = [...array];
   for (let i = newArray.length - 1; i > 0; i--) {
@@ -23,28 +22,38 @@ const Quiz = () => {
   const [score, setScore] = useState(0);
   const [showResult, setShowResult] = useState(false);
   const [feedback, setFeedback] = useState(null);
+  const [time, setTime] = useState(30); // Temporizador en segundos
+  const [answers, setAnswers] = useState([]); // Para el feedback detallado
 
   useEffect(() => {
     if (!quiz) {
       navigate('/');
       return;
     }
-    setShuffledQuestions(shuffleArray(quiz.questions));
+    const newShuffledQuestions = shuffleArray(quiz.questions);
+    setShuffledQuestions(newShuffledQuestions);
+    setAnswers(newShuffledQuestions.map(q => ({ ...q, userChoice: null, isCorrect: false })));
   }, [quiz, navigate]);
 
+  useEffect(() => {
+    if (time > 0 && !showResult) {
+      const timerId = setInterval(() => {
+        setTime(prevTime => prevTime - 1);
+      }, 1000);
+      return () => clearInterval(timerId);
+    } else if (time === 0) {
+      handleAnswer(null); // Si el tiempo se acaba, se considera respuesta incorrecta
+    }
+  }, [time, showResult]);
+
   const saveProgress = (finalScore) => {
-    // 1. Obtener los puntajes actuales de todos los quizzes
     const quizScores = JSON.parse(localStorage.getItem('quizScores') || '{}');
     const globalScore = parseInt(localStorage.getItem('globalScore') || '0', 10);
-    
     const oldScore = quizScores[quizId] || 0;
 
-    // 2. Si el puntaje nuevo es mayor, lo actualizamos
     if (finalScore > oldScore) {
       quizScores[quizId] = finalScore;
       localStorage.setItem('quizScores', JSON.stringify(quizScores));
-      
-      // 3. Sumar la diferencia al puntaje global
       const scoreDifference = finalScore - oldScore;
       const newGlobalScore = globalScore + scoreDifference;
       localStorage.setItem('globalScore', newGlobalScore);
@@ -56,16 +65,22 @@ const Quiz = () => {
     const isCorrect = option === currentQuestion.correctAnswer;
     setFeedback(isCorrect ? "correct" : "incorrect");
 
-    const newScore = score + (isCorrect ? 1 : 0);
-    setScore(newScore);
+    const newAnswers = [...answers];
+    newAnswers[currentQuestionIndex].userChoice = option;
+    newAnswers[currentQuestionIndex].isCorrect = isCorrect;
+    setAnswers(newAnswers);
+
+    if (isCorrect) {
+      setScore(score + 1);
+    }
 
     setTimeout(() => {
       setFeedback(null);
       if (currentQuestionIndex < shuffledQuestions.length - 1) {
         setCurrentQuestionIndex(currentQuestionIndex + 1);
+        setTime(30); // Reiniciar el temporizador
       } else {
-        // Al terminar el quiz, guardamos el progreso
-        saveProgress(newScore);
+        saveProgress(isCorrect ? score + 1 : score);
         setShowResult(true);
       }
     }, 1000);
@@ -78,11 +93,34 @@ const Quiz = () => {
   if (showResult) {
     return (
       <div className="text-center p-8 bg-white rounded-xl shadow-lg w-full max-w-2xl">
-        <h2 className="text-4xl font-bold text-green-600 mb-4">¡Terminaste!</h2>
+        <h2 className="text-4xl font-bold text-green-600 mb-4">¡Terminaste el Quiz!</h2>
         <p className="text-2xl text-gray-700 mb-6">Obtuviste {score} de {shuffledQuestions.length} preguntas correctas.</p>
+        
+        <div className="text-left mt-8">
+            <h3 className="text-2xl font-bold mb-4">Revisión de Respuestas</h3>
+            <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
+                {answers.map((item, index) => (
+                    <div key={index} className={`p-4 rounded-lg shadow-sm ${item.isCorrect ? 'bg-green-50' : 'bg-red-50'}`}>
+                        <div className="flex items-center space-x-2 mb-2">
+                            {item.isCorrect ? (
+                                <FaCheckCircle className="text-green-500" />
+                            ) : (
+                                <FaTimesCircle className="text-red-500" />
+                            )}
+                            <p className="font-semibold">{item.text}</p>
+                        </div>
+                        <p className="text-sm">Tu respuesta: <span className="font-medium">{item.userChoice || "No respondiste"}</span></p>
+                        {!item.isCorrect && (
+                            <p className="text-sm">Correcta: <span className="font-medium text-green-600">{item.correctAnswer}</span></p>
+                        )}
+                    </div>
+                ))}
+            </div>
+        </div>
+
         <button
           onClick={() => navigate('/')}
-          className="bg-blue-500 text-white font-bold py-3 px-6 rounded-lg text-lg hover:bg-blue-600 transition-colors"
+          className="mt-8 bg-blue-500 text-white font-bold py-3 px-6 rounded-lg text-lg hover:bg-blue-600 transition-colors"
         >
           Volver al Inicio
         </button>
@@ -94,12 +132,26 @@ const Quiz = () => {
       return null;
   }
 
+  const progressPercentage = (time / 30) * 100;
+
   return (
     <div className="w-full max-w-2xl p-8 bg-white rounded-xl shadow-lg">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-3xl font-bold text-blue-600">{quiz.title}</h2>
         <span className="text-xl font-bold text-gray-600">Pregunta {currentQuestionIndex + 1} de {shuffledQuestions.length}</span>
       </div>
+
+      {/* Barra de progreso del temporizador */}
+      <div className="w-full bg-gray-200 rounded-full h-4 mb-4 overflow-hidden">
+        <div
+          className="bg-red-500 h-full transition-all duration-1000 ease-linear"
+          style={{ width: `${progressPercentage}%` }}
+        ></div>
+      </div>
+      <p className="text-center text-red-500 font-bold text-lg mb-4 flex items-center justify-center">
+        <FaClock className="mr-2" /> Tiempo restante: {time}s
+      </p>
+
       <p className="text-2xl font-semibold text-gray-800 mb-8">{currentQuestion.text}</p>
       <div className="grid grid-cols-1 gap-4">
         {currentQuestion.options.map((option, index) => (

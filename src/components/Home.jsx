@@ -6,6 +6,7 @@ import { FaGraduationCap } from 'react-icons/fa';
 const Home = () => {
   const [quizScores, setQuizScores] = useState({});
   const [globalScore, setGlobalScore] = useState(0);
+  const [totalQuestions, setTotalQuestions] = useState(0);
 
   useEffect(() => {
     // Leer los puntajes guardados
@@ -13,14 +14,36 @@ const Home = () => {
     setQuizScores(scores);
     const global = parseInt(localStorage.getItem('globalScore') || '0', 10);
     setGlobalScore(global);
+    
+    // Calcular el total de preguntas
+    const total = quizzes.reduce((sum, quiz) => sum + quiz.questions.length, 0);
+    setTotalQuestions(total);
   }, []);
+
+  const progressPercentage = totalQuestions > 0 ? (globalScore / totalQuestions) * 100 : 0;
+  
+  const circleStyle = {
+    background: `conic-gradient(#3B82F6 ${progressPercentage}%, #E5E7EB ${progressPercentage}%)`,
+  };
 
   return (
     <div className="text-center w-full max-w-4xl">
       <h1 className="text-5xl font-extrabold text-blue-600 mb-4 animate-bounce">
         <FaGraduationCap className="inline-block mr-4 text-6xl" />¡Hola! ¿Qué quieres aprender hoy?
       </h1>
-      <p className="text-2xl font-bold text-gray-700 mb-4">Puntaje Global: <span className="text-blue-500">{globalScore}</span> puntos</p>
+      
+      {/* Gráfico de progreso circular */}
+      <div className="mb-8 flex flex-col items-center">
+        <div className="relative w-40 h-40 rounded-full flex items-center justify-center shadow-lg" style={circleStyle}>
+          <div className="absolute w-32 h-32 bg-white rounded-full flex items-center justify-center">
+            <span className="text-4xl font-extrabold text-blue-500">
+              {Math.round(progressPercentage)}%
+            </span>
+          </div>
+        </div>
+        <p className="mt-4 text-2xl font-bold text-gray-700">Puntaje Global: <span className="text-blue-500">{globalScore}</span> de {totalQuestions} puntos</p>
+      </div>
+
       <p className="text-xl text-gray-700 mb-8">Elige una de las actividades para empezar y gana puntos.</p>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {quizzes.map((quiz) => (
