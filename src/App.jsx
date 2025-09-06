@@ -6,6 +6,9 @@ import Quiz from './components/Quiz';
 import Rewards from './components/Rewards';
 import PlanBasic from './components/PlanBasic';
 import PricingPage from './components/pricing';
+import Challenges from './components/Challenges';
+import Shop from "./components/Shop";
+
 import { SignIn, SignUp } from '@clerk/clerk-react';
 
 const App = () => {
@@ -18,6 +21,8 @@ const App = () => {
           <Route path="/rewards" element={<Rewards />} />
           <Route path="/plan-basic" element={<PlanBasic />} />
           <Route path="/pricing" element={<PricingPage />} />
+          <Route path="/challenges" element={<Challenges />} />
+          <Route path="/shop" element={<Shop />} />
           <Route
             path="/sign-in/*"
             element={<SignIn routing="path" path="/sign-in" signUpUrl="/sign-up" />}
