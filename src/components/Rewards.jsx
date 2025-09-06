@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FaTrophy, FaStar, FaLock } from 'react-icons/fa';
+import { Protect } from '@clerk/clerk-react';
 
 const rewardsData = [
   { id: 1, name: "Estrella de Plata", pointsNeeded: 10, icon: FaStar, color: "text-gray-400" },
@@ -21,6 +22,10 @@ const Rewards = () => {
   }, []);
 
   return (
+     <Protect
+      plan="plan_basico"
+      fallback={<p>Debes estar suscrito al plan Basico para ver las recompensas.</p>}
+    >
     <div className="text-center w-full max-w-4xl p-8 bg-white rounded-xl shadow-lg">
       <h1 className="text-4xl font-extrabold text-blue-600 mb-4">¡Mis Recompensas!</h1>
       <p className="text-2xl text-gray-700 mb-8">Tienes un total de <strong className="text-blue-500">{globalScore}</strong> puntos.</p>
@@ -82,6 +87,7 @@ const Rewards = () => {
         })}
       </div>
     </div>
+    </Protect>
   );
 };
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { quizzes } from '../data/quizzes';
-import { FaCheckCircle, FaTimesCircle, FaClock } from 'react-icons/fa';
+import { FaCheckCircle, FaTimesCircle, FaClock, FaGem } from 'react-icons/fa';
 
 const shuffleArray = (array) => {
   const newArray = [...array];
@@ -22,8 +22,8 @@ const Quiz = () => {
   const [score, setScore] = useState(0);
   const [showResult, setShowResult] = useState(false);
   const [feedback, setFeedback] = useState(null);
-  const [time, setTime] = useState(30); // Temporizador en segundos
-  const [answers, setAnswers] = useState([]); // Para el feedback detallado
+  const [time, setTime] = useState(30);
+  const [answers, setAnswers] = useState([]);
 
   useEffect(() => {
     if (!quiz) {
@@ -37,12 +37,10 @@ const Quiz = () => {
 
   useEffect(() => {
     if (time > 0 && !showResult) {
-      const timerId = setInterval(() => {
-        setTime(prevTime => prevTime - 1);
-      }, 1000);
+      const timerId = setInterval(() => setTime(prev => prev - 1), 1000);
       return () => clearInterval(timerId);
-    } else if (time === 0) {
-      handleAnswer(null); // Si el tiempo se acaba, se considera respuesta incorrecta
+    } else if (time === 0 && !showResult) {
+      handleAnswer(null);
     }
   }, [time, showResult]);
 
@@ -57,6 +55,29 @@ const Quiz = () => {
       const scoreDifference = finalScore - oldScore;
       const newGlobalScore = globalScore + scoreDifference;
       localStorage.setItem('globalScore', newGlobalScore);
+
+      // Agregar XP y monedas: por ejemplo +10 XP y +5 monedas por cada respuesta correcta
+      const xp = parseInt(localStorage.getItem('xp') || '0', 10) + scoreDifference * 10;
+      const coins = parseInt(localStorage.getItem('coins') || '0', 10) + scoreDifference * 5;
+      localStorage.setItem('xp', xp);
+      localStorage.setItem('coins', coins);
+
+      // Actualizar retos diarios
+      const today = new Date().toDateString();
+      const challenges = JSON.parse(localStorage.getItem('challenges') || '[]');
+      const updatedChallenges = challenges.map(c => {
+        if (c.date === today) {
+          if (c.text.includes('lecciones')) {
+            return { ...c, done: Math.min(c.done + 1, c.goal) };
+          }
+          if (c.text.includes('racha')) {
+            const streak = parseInt(localStorage.getItem('streak') || '0', 10);
+            return { ...c, done: streak };
+          }
+        }
+        return c;
+      });
+      localStorage.setItem('challenges', JSON.stringify(updatedChallenges));
     }
   };
 
@@ -70,15 +91,13 @@ const Quiz = () => {
     newAnswers[currentQuestionIndex].isCorrect = isCorrect;
     setAnswers(newAnswers);
 
-    if (isCorrect) {
-      setScore(score + 1);
-    }
+    if (isCorrect) setScore(score + 1);
 
     setTimeout(() => {
       setFeedback(null);
       if (currentQuestionIndex < shuffledQuestions.length - 1) {
         setCurrentQuestionIndex(currentQuestionIndex + 1);
-        setTime(30); // Reiniciar el temporizador
+        setTime(30);
       } else {
         saveProgress(isCorrect ? score + 1 : score);
         setShowResult(true);
@@ -89,33 +108,30 @@ const Quiz = () => {
   if (!quiz) return null;
 
   const currentQuestion = shuffledQuestions[currentQuestionIndex];
+  const progressPercentage = (time / 30) * 100;
 
   if (showResult) {
     return (
       <div className="text-center p-8 bg-white rounded-xl shadow-lg w-full max-w-2xl">
         <h2 className="text-4xl font-bold text-green-600 mb-4">¡Terminaste el Quiz!</h2>
-        <p className="text-2xl text-gray-700 mb-6">Obtuviste {score} de {shuffledQuestions.length} preguntas correctas.</p>
+        <p className="text-2xl text-gray-700 mb-6">Obtuviste {score} de {shuffledQuestions.length} correctas.</p>
         
         <div className="text-left mt-8">
-            <h3 className="text-2xl font-bold mb-4">Revisión de Respuestas</h3>
-            <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
-                {answers.map((item, index) => (
-                    <div key={index} className={`p-4 rounded-lg shadow-sm ${item.isCorrect ? 'bg-green-50' : 'bg-red-50'}`}>
-                        <div className="flex items-center space-x-2 mb-2">
-                            {item.isCorrect ? (
-                                <FaCheckCircle className="text-green-500" />
-                            ) : (
-                                <FaTimesCircle className="text-red-500" />
-                            )}
-                            <p className="font-semibold">{item.text}</p>
-                        </div>
-                        <p className="text-sm">Tu respuesta: <span className="font-medium">{item.userChoice || "No respondiste"}</span></p>
-                        {!item.isCorrect && (
-                            <p className="text-sm">Correcta: <span className="font-medium text-green-600">{item.correctAnswer}</span></p>
-                        )}
-                    </div>
-                ))}
-            </div>
+          <h3 className="text-2xl font-bold mb-4">Revisión de Respuestas</h3>
+          <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
+            {answers.map((item, index) => (
+              <div key={index} className={`p-4 rounded-lg shadow-sm ${item.isCorrect ? 'bg-green-50' : 'bg-red-50'}`}>
+                <div className="flex items-center space-x-2 mb-2">
+                  {item.isCorrect ? <FaCheckCircle className="text-green-500" /> : <FaTimesCircle className="text-red-500" />}
+                  <p className="font-semibold">{item.text}</p>
+                </div>
+                <p className="text-sm">Tu respuesta: <span className="font-medium">{item.userChoice || "No respondiste"}</span></p>
+                {!item.isCorrect && (
+                  <p className="text-sm">Correcta: <span className="font-medium text-green-600">{item.correctAnswer}</span></p>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
 
         <button
@@ -128,11 +144,7 @@ const Quiz = () => {
     );
   }
 
-  if (shuffledQuestions.length === 0) {
-      return null;
-  }
-
-  const progressPercentage = (time / 30) * 100;
+  if (shuffledQuestions.length === 0) return null;
 
   return (
     <div className="w-full max-w-2xl p-8 bg-white rounded-xl shadow-lg">
@@ -141,12 +153,8 @@ const Quiz = () => {
         <span className="text-xl font-bold text-gray-600">Pregunta {currentQuestionIndex + 1} de {shuffledQuestions.length}</span>
       </div>
 
-      {/* Barra de progreso del temporizador */}
       <div className="w-full bg-gray-200 rounded-full h-4 mb-4 overflow-hidden">
-        <div
-          className="bg-red-500 h-full transition-all duration-1000 ease-linear"
-          style={{ width: `${progressPercentage}%` }}
-        ></div>
+        <div className="bg-red-500 h-full transition-all duration-1000 ease-linear" style={{ width: `${progressPercentage}%` }}></div>
       </div>
       <p className="text-center text-red-500 font-bold text-lg mb-4 flex items-center justify-center">
         <FaClock className="mr-2" /> Tiempo restante: {time}s
